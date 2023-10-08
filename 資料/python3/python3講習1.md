@@ -13,12 +13,32 @@ marp: true
 ## 入門編
 
 ---
-## 今日の目標　
-4つのボタンを使ってLEDを点灯、明るさの調整、消灯を行う
-![picture 1](images/542421bd1426aabfd2d2302165510ea65aa4889a4b8febbfcb5dc7995a1bd58d.png)  
+## 環境
+* python 3.9 ,3.10 ,3.11
+* ThinkPad L380 ubuntu22.04.3tls
+* ThinkPad P1 Gen 3
 
 ---
-# まずは簡単なボタンを押してる間だけ光るプログラムを書いてみよう
+# インタープリンタの起動
+通常`/usr/local/bin/python3.10`としてインストールされている
+
+```py
+pyhon3.10
+```
+と入力すると起動できる
+
+```
+Python 3.10.12 (main, Jun 11 2023, 05:26:28) [GCC 11.4.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>>
+```
+---
+
+Windowsの場合
+![picture 1](1.png)  
+
+---
+
 ---
 定数宣言
 ```cpp
@@ -29,8 +49,7 @@ int ledPin = 9;
 int button1 = 3;
  
 ```
-
-![picture 1](images/551e958f720cf1d4dae52a7f2fadf1007188b517f9601940bef769fc587c1537.png)  
+ 
 
 * `int` は、整数を宣言する
 * `ledPin` はLEDが接続されているピン番号です。
