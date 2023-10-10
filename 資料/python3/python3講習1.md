@@ -375,4 +375,5 @@ whileはaが10未満の間、以下のコードブロックを繰り返すルー
 
 ---
 次回
-制御構造ツール(if,for,range(),break,continue,pass,)
+制御構造ツール
+
