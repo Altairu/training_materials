@@ -289,8 +289,8 @@ for 要素 in イテラブル:
 ```py
 count = 0
 while count < 5:
-print(count)
-count += 1
+ print(count)
+ count += 1
 ```
 - 0から4までの数字を表示します
 - `count`が5未満の間、ループが続行
