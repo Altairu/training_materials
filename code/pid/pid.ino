@@ -3,7 +3,7 @@
 const int encoderPinA = 2;  // A相
 const int encoderPinB = 3;  // B相
 volatile long encoderCount = 0;  // エンコーダーのカウンター
-int degrees = 0;  // エンコーダーの角度
+int degrees = 30;  // エンコーダーの角度
 
 double Kp = 20;
 double Ki = 0.01; 
