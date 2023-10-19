@@ -186,3 +186,33 @@ for num in range(1, 11):
 10は偶数
 
 ```
+---
+次回
+## データ構造とモジュール
+
+---
+# おまけ
+
+```py
+import serial
+
+ser = serial.Serial('/dev/ttyACM0', 9600,timeout=None)# "COM19"
+while True:
+    line = ser.readline() # ここで一行データを取得するがbyte型
+    stripped_str = str(line, 'ascii').strip() # byte型を文字列に変換して前後の空白改行除去
+    data = int(stripped_str) # 文字列を数値に解釈し直す
+    print(data)
+```
+```cpp
+//Arduino
+void setup() {
+  Serial.begin(9600);
+}
+
+int data = 0;
+void loop() {
+  data++;
+  Serial.println(data); 
+  delay(1000);
+}
+```
