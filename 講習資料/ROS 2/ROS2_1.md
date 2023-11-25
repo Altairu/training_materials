@@ -1,9 +1,20 @@
 ---
 marp: true
 ---
+<br> 
+<br> 
+<br> 
+<br> 
+<br> 
+
 
 # ROS 2講習 第一回
 ### 4S 野口 史遠
+<br> 
+<br> 
+<br> 
+<br> 
+参考文献:ROS2とPythonで作って学ぶAIロボット入門
 
 ---
 ## ROS 2の基礎知識
@@ -120,3 +131,137 @@ ros2 サブコマンド　--help
 
 ---
 # １.ワークスペースの作成
+ROS2ではプログラムをパッケージと呼ばれる単位でつくります．はじめにパッケージを保存するための作業用ディレクトリを作らなければなりません．それがワークスペースです．１つのワークスペースに何個でもパッケージを作れます．
+また，自作パッケージを使うにはROSシステムのワークスペース環境（`アンダーレイ`）と自作ワークスペース環境(`オーバーレイ`)を整えなければならない．
+
+---
+* 設定ファイルの実行
+`source`コマンドでアンダーレイの設定ファイルを実行
+```
+source /opt/ros/humble/setup.bash
+```
+
+* ワークスペース用のディレクトリ作成
+`mkdir`コマンドでディレクトリを作成
+```
+mkdir -p ~/hazimete/src
+```
+---
+# 2.パッケージの作成
+パッケージは自作したROS2コードの入れ物．パッケージを使うことでかんたんにビルでできたり一般公開できるようになる
+
+ファイル構成
+* setup.py:パッケージのインストール法が書かれたファイル
+* setup.cfg:パッケージ実行ファイルがある場合に必要なファイル（ros2 run）
+* package.xlm:パッケージに関する情報
+* パッケージ名: パッケージと同じ名前のディレクトリ
+---
+
+* パッケージの作成
+`cd`コマンドでディレクトリを移動する
+```
+cd ~/hazimete/src
+```
+つぎに`ros2 pkg create`コマンドでパッケージを作成
+```
+ros2 pkg create --build-type ament_python hazimetepkg
+```
+なお，
+```
+ros2 pkg create --build-type ament_python --node-name hazimetenode hazimetepkg
+```
+とするとノードも作れる．
+
+---
+# 3.ソースコードの作成
+現在の中身
+![Alt text](image-3.png)
+ここからは，使いやすいvscodeを使います
+```
+cd ~/hazimete
+code .
+```
+とするとvscodeが立ち上がります．`.`はカントディレクトリ
+
+---
+![Alt text](image-5.png)
+
+---
+* package.xlmの編集
+コメントアウトが変更する場所
+```xml
+  <name>hazimetepkg</name> # 1.パッケージ名
+  <version>0.0.0</version>　# 2.パッケージのバージョン
+  <description>TODO: Package description</description> # 3.パッケージの説明
+  <maintainer email="Altairu@github.com">altair</maintainer>　#4.保守者のメールアドレス
+  <license>TODO: License declaration</license>　＃５．パッケージのライセンス
+```
+* setup.pyの編集
+setup.pyを変更しないとノードを実行できません
+コメントアウトしている７つを変更しなければならない．
+一般公開しない場合は７つ目のみ要変更
+
+---
+```py
+from setuptools import find_packages, setup
+
+package_name = 'hazimetepkg' # 1.パッケージ名
+
+setup(
+    name=package_name,
+    version='0.0.0', # 2.パッケージのバージョン
+    packages=find_packages(exclude=['test']),
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    maintainer='altair', #3.保守者
+    maintainer_email='Altairu@github.com', #4.保守者のメールアドレス
+    description='TODO: Package description', #5.パッケージの説明
+    license='TODO: License declaration', #6．パッケージのライセンス
+    tests_require=['pytest'], 
+    entry_points={ #7.エントリポイント
+        'console_scripts': [
+            #ノード名=パッケージ名.ノード名:main
+            'hazimetenode = hazimetepkg.hazimetenode:main'#pythonファイルごとに必要
+        ],
+    },
+)
+
+```
+エントリポイントを自動生成したければ`--node-name`のオプションをつければよし
+
+---
+* ソースコード作成
+本来ならここでソースコードを作るが自動生成されたものを使ってみましょう
+hazimetenode.pyは自動生成されたプログラムです．
+```py
+def main():
+    print('Hi from hazimetepkg.')
+if __name__ == '__main__':
+    main()
+```
+---
+# 4.ビルド
+パッケージを作るためにビルドしないといけない
+ROS２ではビルドシステムとして`ament`を使い，ビルドコマンドとして`colcon`を使う
+ちなみにワークスペース名直下のディレクトリしかビルドできない
+```
+cd ~/hazimete
+colcon build
+```
+---
+# 5. 設定ファイルの反映
+パッケージののーどを実行する前に，ROS2の設定ファイルをsourceコマンドで反映させる
+* アンダーレイ設定ファイルの反映
+```
+source /opt/ros/humble/setup.bash
+```
+* オーバーレイ設定ファイルの反映
+自作ワークスペースの設定を反映させる．これで作成したワークスペースの場所がわかるようになりノードを実行できる
+```
+source ~/hazimete/install/setup.bash
+```
