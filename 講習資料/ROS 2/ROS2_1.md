@@ -265,3 +265,13 @@ source /opt/ros/humble/setup.bash
 ```
 source ~/hazimete/install/setup.bash
 ```
+---
+# 6.ノードの実行
+```
+ros2 run hazimetepkg hazimetenode
+```
+![Alt text](image-6.png)
+
+---
+次はROS2プログラムの作り方
+前提レベル：python３のプログラムがかけます．（クラス）
