@@ -274,4 +274,4 @@ ros2 run hazimetepkg hazimetenode
 
 ---
 次はROS2プログラムの作り方
-前提レベル：python３のプログラムがかけます．（クラス）
+前提知識：python３（クラス）
