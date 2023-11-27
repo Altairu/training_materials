@@ -28,3 +28,6 @@ marp: true
 * `rclpy.spin()`:繰り返し処理可能　`rclpy.spin_once()`:処理を１回実行
 5. 終了処理
 * `rclpy.shutdown()`:終了処理します．
+
+---
+# 1.モジュールのインポート
