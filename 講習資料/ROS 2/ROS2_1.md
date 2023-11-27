@@ -175,7 +175,9 @@ ros2 pkg create --build-type ament_python --node-name hazimetenode hazimetepkg
 ---
 # 3.ソースコードの作成
 現在の中身
+
 ![Alt text](image-3.png)
+
 ここからは，使いやすいvscodeを使います
 ```
 cd ~/hazimete
