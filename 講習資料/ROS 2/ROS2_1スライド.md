@@ -1,6 +1,19 @@
+---
+marp: true
+---
+<br> 
+<br> 
+<br> 
+<br> 
+<br> 
+
 
 # ROS 2講習 第一回
 ### 4S 野口 史遠
+<br> 
+<br> 
+<br> 
+<br> 
 参考文献:ROS2とPythonで作って学ぶAIロボット入門
 
 ---
