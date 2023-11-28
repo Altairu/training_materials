@@ -17,6 +17,12 @@ marp: true
 参考文献:ROS2とPythonで作って学ぶAIロボット入門
 
 ---
+
+## 環境
+* python 3.10 
+* ThinkPad L380 ubuntu22.04.3tls
+* ROS2 humble
+---
 ## ROS 2の基礎知識
 
 ROS 2は多くの実行中のプログラム間で通信してロボットを動かす。このプログラムのことを`ノード(node)`という
@@ -275,5 +281,109 @@ ros2 run hazimetepkg hazimetenode
 ![Alt text](image-6.png)
 
 ---
-次はROS2プログラムの作り方
-前提知識：python３（クラス）
+# ROS2プログラムの処理の流れ
+1. モジュールのインポート
+* ROS2でpythonプログラムを作るには`rclpy`をインポートする必要がある．
+2. 初期化
+* `rclpy.init() `:ROS2通信のための初期化
+3. ノードの作成
+* nodeクラスのインスタンス化：Nodeクラスを継承してクラスを作り,そのインスタンスをさくせいすることでノードを作成する．
+4. ノード処理
+* `rclpy.spin()`:繰り返し処理可能　`rclpy.spin_once()`:処理を１回実行
+5. 終了処理
+* `rclpy.shutdown()`:終了処理します．
+
+---
+# ROS2プログラミング
+ROS2では基本的にクラスを使ってプログラミングします．
+test1_node.py
+```py
+import rclpy  # 1. ROS2 Python モジュールのインポート
+from rclpy.node import Node  # rclpy.node モジュールから Node クラスをインポート
+
+
+class test1Node(Node):  # test1Nodeクラス
+    def __init__(self):
+        print('ノードの生成')
+        super().__init__('test1_node')  # 基底クラスコンストラクタのよび出し
+        self.get_logger().info('アルタイル参上')  # 4. ノードの処理
+
+
+def main():  # main 関数
+    print('プログラム開始')
+    rclpy.init()               # 2. 初期化
+    node = test1Node()         # 3. ノードの生成
+    rclpy.shutdown()           # 5. 終了処理
+    print('プログラム終了')
+```
+
+---
+
+* インポート (1-2行目): 1行目のrcipy は ROS2のPython モジュールなので必ずインポートしなければなりません、2行目はノードをつくるために必要でrclpy node モジュールから Node クラスをインポートします。この2行は常に必要です
+* クラスの定義 (5~9行目): test1Nodeクラスを定義しています.コンストラクタの8行目で基底クラスNodeのコンストラクタを呼び出すことでノードを生成しています.引数test1_Nodeはノード名です。9行目のget_logger().info()はノードのメソッドでログ(log)情報(この例ではアルタイル参上)を端末に表示します．print文とは違い、端末だけでなくROS2のアプリrqt_console でも読むことができます
+* main()関数(12~17行目): このプログラムは main()関数から実行されるので、main()関数が前節で説明したsetup.pyのエントリポイント(開始点)です
+* relpy.init()(14行目):rclpy.init()でROS2通信を初期化します.ノードをつくる前に呼び出さなければいけません
+* クラスのインスタンス化 (15行目): test1Nodeクラスのインスタンスnodeを生成しています.
+* rclpy.shutdown() (16行目): relpy.shutdown() で終了処理をしています.
+
+---
+### １回目で作ったワークスペースに違う名前でパッケージを作ってみましょう
+同じパッケージ名があるとビルドできないので気をつけましょう．
+![](image-7.png)
+
+---
+
+# コールバックを使ったプログラム
+ROS2では`コールバック関数`や`コールバックメソッド`を多用してっプログラムを作る．
+* コールバック関数：プログラム中で，呼び出し先の関数の実行中に実行されるように，あらかじめ指定しておく関数
+
+→マウスで線を書くなどの処理を実装するとき
+あるイベントが起きたときになにか処理させたい場合に使われる
+ROS2では`spinOnce()`や`spin()`でコールバックを明示的に呼び出す必要がある．
+
+---
+### タイマを使ったコールバック
+test1_node2.py
+```py
+import rclpy  # 1. ROS2 Python モジュールのインポート
+from rclpy.node import Node  # rclpy.node モジュールから Node クラスをインポート
+
+class test1Node2(Node):  # test1Node2クラス
+    def __init__(self):  # コンストラクタ
+        print('ノードの生成')
+        super().__init__('test1_node2')  # 基底クラスコンストラクタのよび出し
+        self.timer = self.create_timer(1.0, self.timer_callback)  # タイマーの生成
+
+    def timer_callback(self):  # タイマーのコールバック関数
+        self.get_logger().info('アルタイル参上！？')
+
+def main():  # main 関数
+    print('プログラム開始')
+    rclpy.init()               # 2. 初期化
+    node = test1Node2()        # 3. ノードの生成
+    rclpy.spin(node)           # 4. ノードの処理．コールバック関数を繰り返しよび出す．
+    rclpy.shutdown()           # 5. 終了処理
+    print('プログラム終了')
+```
+---
+* タイマの生成(8行目):タイマを使うためには，`create_timer(timer_period,callback)`を使う．１番目の引数は繰り返し間隔[s],２番目はコールバック
+* コールバック(10~11行目):timer_callbackはタイマによって周期的に呼び出されるコールバック．ここでは「アルタイル参上!?」って表示させてるだけ
+* rclpy.spin (17行目):spinで何度もコールバックを呼び出します．プログラムはここでブロックされます．
+---
+
+### ではノードを追加してみましょう
+![](image-8.png)
+'test1_node = test1.test1_node:main', 'test1_node2 = test1.test1_node2:main'
+steup.pyに加えるの忘れずに
+
+---
+
+```
+ros2 run test1 test1_node2
+```
+
+![Alt text](image-10.png)
+Ctrl+Cで強制的にプログラムを終了させてください．
+
+---
+### 次回はトピック通信とサービス通信のプログラムの作り方
