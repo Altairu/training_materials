@@ -332,6 +332,16 @@ def main():  # main 関数
 ![](image-7.png)
 
 ---
+実行してみましょう
+```
+~/hazimete$ source ~/hazimete/install/setup.bash
+~/hazimete$ source /opt/ros/humble/setup.bash
+~/hazimete$ colcon build
+~/hazimete$ ros2 run test1 test1_node
+```
+![Alt text](image-11.png)
+
+---
 
 # コールバックを使ったプログラム
 ROS2では`コールバック関数`や`コールバックメソッド`を多用してっプログラムを作る．
