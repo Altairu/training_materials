@@ -9,7 +9,7 @@ marp: true
 
 
 # ROS 2講習 第一回
-### 4S 野口 史遠
+### 4S altair
 <br> 
 <br> 
 <br> 

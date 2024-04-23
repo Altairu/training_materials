@@ -11,7 +11,7 @@ marp: true
 # ROS 2講習 第二回
 -トピック通信のプログラム-
 
-### 4S 野口 史遠
+### 4S altair
 <br> 
 <br> 
 <br> 
