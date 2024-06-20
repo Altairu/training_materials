@@ -8,7 +8,7 @@ marp: true
 <br> 
 
 
-# ROS 2講習 第二回
+# ROS 2講習 第三回
 -サービス通信のプログラム-
 
 ### 4S altair
@@ -165,5 +165,3 @@ def main(args=None):
                 break  
     rclpy.shutdown()
 ```
-
----
