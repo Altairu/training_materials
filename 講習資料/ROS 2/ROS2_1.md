@@ -34,7 +34,7 @@ ros2の通信方法には
 カメラ，LIDARとか
 
 ---
-![Alt text](image-1.png)
+![Alt text](images/image-1.png)
 
 イメージ：テレビ
 テレビ局に該当するデータの送り手を`パブリッシャ(pablisher)`
@@ -54,7 +54,7 @@ ros2の通信方法には
 
 ---
 
-![Alt text](image.png)
+![Alt text](images/image.png)
 
 イメージ：Google検索
 データの送り手を`クライアント（client）`
@@ -71,7 +71,7 @@ ros2の通信方法には
 
 ---
 
-![Alt text](image-2.png)
+![Alt text](images/image-2.png)
 サービスとトピックの両方を使用している
 
 ---
@@ -169,7 +169,7 @@ ros2 pkg create --build-type ament_python --node-name hazimetenode hazimetepkg
 # 3.ソースコードの作成
 現在の中身
 
-![Alt text](image-3.png)
+![Alt text](images/image-3.png)
 
 ここからは，使いやすいvscodeを使います
 ```
@@ -179,7 +179,7 @@ code .
 とするとvscodeが立ち上がります．`.`はカントディレクトリ
 
 ---
-![Alt text](image-5.png)
+![Alt text](images/image-5.png)
 
 ---
 * package.xlmの編集
@@ -265,7 +265,7 @@ source ~/hazimete/install/setup.bash
 ```
 ros2 run hazimetepkg hazimetenode
 ```
-![Alt text](image-6.png)
+![Alt text](images/image-6.png)
 
 ---
 # ROS2プログラムの処理の流れ
@@ -316,7 +316,7 @@ def main():  # main 関数
 ---
 ### １回目で作ったワークスペースに違う名前でパッケージを作ってみましょう
 同じパッケージ名があるとビルドできないので気をつけましょう．
-![](image-7.png)
+![](images/image-7.png)
 
 ---
 実行してみましょう
@@ -326,7 +326,7 @@ def main():  # main 関数
 ~/hazimete$ colcon build
 ~/hazimete$ ros2 run test1 test1_node
 ```
-![Alt text](image-11.png)
+![Alt text](images/image-11.png)
 
 ---
 
@@ -369,7 +369,7 @@ def main():  # main 関数
 ---
 
 ### ではノードを追加してみましょう
-![](image-8.png)
+![](images/image-8.png)
 'test1_node = test1.test1_node:main', 'test1_node2 = test1.test1_node2:main'
 steup.pyに加えるの忘れずに
 
@@ -379,7 +379,7 @@ steup.pyに加えるの忘れずに
 ros2 run test1 test1_node2
 ```
 
-![Alt text](image-10.png)
+![Alt text](images/image-10.png)
 Ctrl+Cで強制的にプログラムを終了させてください．
 
 ---

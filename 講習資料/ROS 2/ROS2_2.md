@@ -91,7 +91,7 @@ DEBUG,INFO,WARN,ERROR,FATALとレベルが高くなる
 ~/hazimete$ source /opt/ros/humble/setup.bash
 ~/hazimete$ ros2 run topic_pkg topic_publisher_node
 ```
-![](image-12.png)
+![](images/image-12.png)
 
 ---
 # トピック通信プログラムの作り方
@@ -164,7 +164,7 @@ setup.py
 ```
 ---
 実行は端末をに分割して行う(先にサブスクライバを起動させておこう)
-![Alt text](image-13.png)
+![Alt text](images/image-13.png)
 
 ---
 # サブスクライブしてパブリッシュするプログラム
@@ -237,13 +237,13 @@ ros2 topic pub --once /number std_msgs/msg/Int32 '{data: 1}'
 ```
 ---
 
-![Alt text](image-14.png)
+![Alt text](images/image-14.png)
 
 ---
 GUIを使ってみる
 ```
 rqt
 ```
-![Alt text](image-16.png)
+![Alt text](images/image-16.png)
 
 ---
