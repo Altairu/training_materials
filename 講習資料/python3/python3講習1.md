@@ -153,7 +153,7 @@ NameError: name 'n' is not defined
 
 ## 文字列
 
-バックスラッシュ(\)でクォート文字のエスケープができる 
+バックスラッシュ($でクォート文字のエスケープができる 
 ```py
 >>> 'spam eggs'# シングルクォート
 'spam eggs'
