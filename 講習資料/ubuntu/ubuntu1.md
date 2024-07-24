@@ -1,7 +1,5 @@
 # **Ubuntu講習**
 
-### 5s 野口史遠
-
 github:Altairu
 
 X:＠Flying___eagle
@@ -278,7 +276,7 @@ altair -h
 ```bash
 altair txt
 ```
----
+
 
 ### PDFファイルを開く
 
@@ -291,7 +289,6 @@ altair pdf filename.pdf
 ```bash
 altair py script.py
 ```
----
 
 ### Pythonファイルを作成して開く
 

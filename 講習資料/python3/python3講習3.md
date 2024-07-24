@@ -4,7 +4,7 @@ marp: true
 
 # python3講習
 
-４S　野口史遠
+４S　Altair
 
 ---
 

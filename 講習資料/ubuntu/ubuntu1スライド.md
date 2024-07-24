@@ -15,7 +15,7 @@ footer: © 2024 Altair
 # **Ubuntu講習**
 <br>
 
-### 5s 野口史遠
+
 
 ![width:40px](../../images/image.png)　Altairu
 
