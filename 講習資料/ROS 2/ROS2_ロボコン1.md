@@ -914,3 +914,201 @@ def main(args=None):
 - `robot_position` トピックを発行し，受信した座標を送信
 - `read_serial_data` でシリアル通信を監視し，マイコンのデータを取得
 
+# センシング層
+
+ロボットの自律移動には，周囲の環境を認識し，自己位置を正確に推定することが不可欠である．  
+本章では，**RealSenseセンサ（T265, D435i）を用いた自己位置推定** や **YOLOを用いた物体認識** について解説する．  
+さらに，**ローパスフィルタ，重み付き平均，カルマンフィルタ** を用いたデータ処理手法についても説明する．
+
+
+## **RealSenseセンサを用いた自己位置推定**
+Intel RealSenseは，ステレオカメラやIMUを活用し，**奥行き情報や自己位置の推定** を可能にするセンサである．  
+たとえば，**T265** を使って自己位置を推定し，**D435i** を使って障害物や人物を検出する．
+
+### **RealSense T265（VSLAMを用いた自己位置推定）**
+T265は**Visual SLAM（VSLAM）** を用いて自己位置を推定するカメラである．  
+IMU（慣性計測装置）と2つの魚眼カメラを組み合わせ，外部のランドマークなしで自己位置を求めることができる．
+
+#### **自己位置推定の計算**
+自己位置は，カメラのIMUデータとVSLAMを統合して得られる．座標系は以下のように定義される：
+
+- \( x \) 軸：ロボットの右方向（m）
+- \( y \) 軸：ロボットの前方向（m）
+- \( \theta \) ：ロボットの回転角度（度）
+
+移動距離 \( d \) は，前回の位置 \((x_0, y_0)\) と現在位置 \((x_t, y_t)\) から次のように計算される：
+
+$$
+d = \sqrt{(x_t - x_0)^2 + (y_t - y_0)^2}
+$$
+
+ロボットの進行方向 \(\theta\) は：
+
+$$
+\theta = \tan^{-1} \left( \frac{y_t - y_0}{x_t - x_0} \right)
+$$
+
+#### **ROS2 ノード実装（自己位置推定）**
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Float32MultiArray
+import pyrealsense2 as rs
+
+class RealSensePositionNode(Node):
+    def __init__(self):
+        super().__init__('realsense_position_node')
+        self.publisher_ = self.create_publisher(Float32MultiArray, 'realsense_position', 10)
+
+        self.pipe = rs.pipeline()
+        cfg = rs.config()
+        cfg.enable_stream(rs.stream.pose)  # IMUとVSLAMによる自己位置推定
+        self.pipe.start(cfg)
+
+        self.create_timer(0.1, self.update_position)
+
+    def update_position(self):
+        frames = self.pipe.wait_for_frames()
+        pose = frames.get_pose_frame()
+        if pose:
+            data = pose.get_pose_data()
+            x, y, theta = data.translation.x * 1000, data.translation.y * 1000, data.rotation.yaw
+            msg = Float32MultiArray()
+            msg.data = [x, y, theta]
+            self.publisher_.publish(msg)
+            self.get_logger().info(f"RealSense Position: X={x}, Y={y}, Theta={theta}")
+
+    def destroy_node(self):
+        self.pipe.stop()
+        super().destroy_node()
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = RealSensePositionNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+### **RealSense D435i（深度カメラを用いた障害物検出）**
+D435iは，**ステレオカメラを用いた深度測定** と **IMUを利用した動き補正** が可能なカメラである．  
+これを利用して，障害物の有無や人物の検出を行う．
+
+#### **ROS2 ノード実装（深度データ取得）**
+```python
+import pyrealsense2 as rs
+import numpy as np
+import cv2
+
+pipeline = rs.pipeline()
+config = rs.config()
+config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+pipeline.start(config)
+
+while True:
+    frames = pipeline.wait_for_frames()
+    depth_frame = frames.get_depth_frame()
+    color_frame = frames.get_color_frame()
+    depth_image = np.asanyarray(depth_frame.get_data())
+    color_image = np.asanyarray(color_frame.get_data())
+
+    # 奥行きデータの取得
+    center_x, center_y = 320, 240
+    distance = depth_frame.get_distance(center_x, center_y)
+    print(f"Distance to center: {distance:.2f}m")
+
+    cv2.imshow("Depth Image", depth_image)
+    cv2.imshow("Color Image", color_image)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+pipeline.stop()
+cv2.destroyAllWindows()
+```
+## **YOLO を用いた物体認識**
+物体認識には **YOLO（You Only Look Once）** を使用する．  
+YOLO は高速かつ高精度なリアルタイム物体検出が可能であり，ロボットが人や障害物を認識するために利用する．
+
+#### **ROS2 ノード実装（YOLO + RealSense）**
+```python
+import torch
+import cv2
+
+# YOLOモデルをロード
+model = torch.hub.load('/home/altair/Roboware/ultralytics/yolov5', 'custom',
+                       path='/home/altair/Roboware/ultralytics/yolov5/yolov5s.pt', source='local')
+
+# 画像を読み込み
+img = cv2.imread("test.jpg")
+
+# 物体検出を実行
+results = model(img)
+
+# 結果を表示
+results.show()
+```
+
+## **データ処理手法**
+センサデータのノイズを減らし，より安定した値を得るために，以下の手法を用いる．
+
+### **(1) ローパスフィルタ**
+ノイズを除去し，急激な変化を抑えるフィルタ．  
+フィルタ適用後のデータ \( X_f \) は以下の式で求められる：
+
+$$
+X_f = \alpha X + (1 - \alpha) X_{prev}
+$$
+
+Python 実装：
+```python
+alpha = 0.2
+filtered_value = alpha * new_value + (1 - alpha) * previous_value
+```
+
+---
+
+### **重み付き平均**
+RealSenseとマイコンの自己位置データを統合する方法．  
+重み \( w_r, w_m \) を用いて，統合した自己位置 \( X \) を求める：
+
+$$
+X = \frac{w_r X_r + w_m X_m}{w_r + w_m}
+$$
+
+Python 実装：
+```python
+w_r = 0.6
+w_m = 0.4
+fused_x = (w_r * realsense_x + w_m * microcontroller_x) / (w_r + w_m)
+```
+
+### **カルマンフィルタ**
+ノイズ除去と予測補正を行う高度な手法．  
+観測値 \( z \) と予測値 \( \hat{x} \) を組み合わせ，最適な値を求める：
+
+$$
+x_{new} = x_{prev} + K (z - x_{prev})
+$$
+
+Python 実装：
+```python
+K = 0.5  # カルマンゲイン
+filtered_x = prev_x + K * (measured_x - prev_x)
+```
+
+# まとめ
+
+
+| 層             | 役割                   | 具体的な処理例                         |
+| -------------- | ---------------------- | -------------------------------------- |
+| 通信層         | スマホ・PC との通信    | WebSocket を使用し，ユーザー入力を取得 |
+| 制御層         | 経路計画・制御         | 位置推定を行いながら目標地点へ移動     |
+| ハードウェア層 | 通信 | 速度・角速度をシリアル通信で送信       |
+| センシング層   | ロボットの自己位置推定 | RealSense T265 + マイコンのデータ統合  |
+
+実際にロボコンで使用された例を基に解説を行った．
+
+次の資料ではこれらを基に簡易的なロボットのRobowareパッケージを構築していく．
