@@ -123,51 +123,81 @@ WebSocket 通信を ROS2 と連携させるために**FastAPI**を使用する�
 
 以下のコードは，FastAPI を使用して WebSocket サーバーを作成し，クライアントとの通信を管理する．
 
+#### **`web_socket_node.py`（通信ノード）**
+
 ```python
 import threading
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Float32MultiArray
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket as FastAPIWebSocket
+from fastapi.responses import HTMLResponse
 import uvicorn
+import os
 
+# IPアドレスとポート設定
+IP_ADDRESS = '192.168.98.216'
+PORT = 8010
+
+# UIファイル（`R1_UI.txt`）のパス
+UI_PATH = '/home/altair/2024_A_ROS2_Roboware/src/robot_controller/R1_UI.txt'
+
+# FastAPIのインスタンスを作成
 app = FastAPI()
+
+# UIの読み込み
+if not os.path.exists(UI_PATH):
+    raise FileNotFoundError(f'File not found: {UI_PATH}')
+with open(UI_PATH, 'r') as f:
+    html = f.read()
 
 class WebSocketNode(Node):
     def __init__(self):
         super().__init__('web_socket_node')
+        self.send_data = ''
         self.pub = self.create_publisher(String, 'web_socket_pub', 10)
-        self.sub = self.create_subscription(Float32MultiArray, 'robot_position', self.callback, 10)
-        self.send_data = ""
+        self.sub = self.create_subscription(Float32MultiArray, 'estimated_position', self.callback, 10)
 
-    def callback(self, msg):
-        self.send_data = ','.join(map(str, msg.data))
+        @app.get("/")
+        async def get():
+            return HTMLResponse(html)
 
-@app.websocket('/ws')
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    node = WebSocketNode()
-    try:
-        while True:
-            receive_data = await websocket.receive_text()
-            msg = String()
-            msg.data = receive_data
-            node.pub.publish(msg)
-            await websocket.send_text(node.send_data)
-    except Exception as e:
-        print(f'WebSocket error: {str(e)}')
+        @app.websocket('/ws')
+        async def websocket_endpoint(websocket: FastAPIWebSocket):
+            await websocket.accept()
+            try:
+                while True:
+                    receive_data = await websocket.receive_text()
+                    msg = String()
+                    msg.data = receive_data
+                    self.pub.publish(msg)
 
-# FastAPIサーバーの実行関数
-def run_fastapi():
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+                    string_send_data = ",".join(map(str, self.send_data))
+                    await websocket.send_text(string_send_data)
+            except Exception as e:
+                print(f'WebSocket error: {str(e)}')
 
-# メイン関数
-def main():
+    def callback(self, sub_msg):
+        self.send_data = sub_msg.data
+
+def run_ros2():
     rclpy.init()
-    ros2_thread = threading.Thread(target=rclpy.spin, args=(WebSocketNode(),))
+    node = WebSocketNode()
+    rclpy.spin(node)
+    rclpy.shutdown()
+
+def run_fastapi():
+    uvicorn.run(app, host=IP_ADDRESS, port=PORT)
+
+def main():
+    ros2_thread = threading.Thread(target=run_ros2)
     ros2_thread.start()
-    run_fastapi()
+
+    fastapi_thread = threading.Thread(target=run_fastapi)
+    fastapi_thread.start()
+
     ros2_thread.join()
+    fastapi_thread.join()
 
 if __name__ == '__main__':
     main()
@@ -181,6 +211,92 @@ if __name__ == '__main__':
 4. ROS2 ノードが処理し,ロボットを制御.
 5. ロボットの自己位置データを WebSocket 経由でスマートフォンに送信.
 
-以下に堀君が作製したリポジトリを示す．詳しくはこちらを参照せよ．
+## `R1_UI.txt`（UI ファイル）の作成方法
 
-https://github.com/SkenHub/ros2-websocket-link
+`R1_UI.txt` は Web ページの UI を記述した HTML ファイルです.このファイルはスマートフォンや PC のブラウザからアクセスし,ボタンやジョイスティックを操作することでロボットを制御するために使用します.
+
+### **UI ファイルの基本構造**
+
+UI は HTML + CSS で作成されており,主要な要素は以下の通りです.
+
+例
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Robot Controller</title>
+    <style>
+      body {
+        background: black;
+        color: white;
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+
+      .button {
+        display: inline-block;
+        width: 100px;
+        height: 50px;
+        margin: 10px;
+        background-color: blue;
+        color: white;
+        font-size: 20px;
+        border: none;
+        cursor: pointer;
+      }
+
+      .button:hover {
+        background-color: darkblue;
+      }
+
+      .joystick-container {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Robot Controller</h1>
+    <button class="button" onclick="sendCommand('1')">Move 1</button>
+    <button class="button" onclick="sendCommand('2')">Move 2</button>
+    <button class="button" onclick="sendCommand('3')">Move 3</button>
+
+    <div class="joystick-container">
+      <input type="range" id="joystickX" min="0" max="200" value="100" />
+      <input type="range" id="joystickY" min="0" max="200" value="100" />
+      <button class="button" onclick="sendJoystick()">Send Joystick</button>
+    </div>
+
+    <script>
+      const ws = new WebSocket("ws://192.168.98.216:8010/ws");
+
+      ws.onmessage = function (event) {
+        console.log("Received: " + event.data);
+      };
+
+      function sendCommand(command) {
+        ws.send(command);
+      }
+
+      function sendJoystick() {
+        let lx = document.getElementById("joystickX").value;
+        let ly = document.getElementById("joystickY").value;
+        let message = `0,1,0,0,0,0,0,${lx},${ly},100,100`;
+        ws.send(message);
+      }
+    </script>
+  </body>
+</html>
+```
+
+### **UI ファイルの役割**
+
+- **ボタン制御**：ボタンを押すと,特定の命令（例: `Move 1`）が WebSocket 経由で送信されます.
+- **ジョイスティック制御**：スライダーで値を変更し,ジョイスティックの X,Y 値を送信することで,ロボットの移動を制御できます.
+
+以下に堀君が作製したリポジトリを示す．詳しくは[こちら](https://github.com/SkenHub/ros2-websocket-link)を参照せよ．
