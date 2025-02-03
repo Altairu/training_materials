@@ -753,6 +753,8 @@ def send_velocity_command(self, Vx, Vy, omega, team_color, action_number):
 高専ロボコンにおいては，リアルタイム性と安定したデータ通信が求められるため，**シリアル通信（UART）** を用いることが一般的である．
 シリアル通信とは，データを 1 ビットずつ順番に送受信する通信方式であり，**UART（Universal Asynchronous Receiver Transmitter）** で広く使用される．  
 
+>参考にどうぞ https://github.com/SkenHub/ROS2_Serial/tree/main
+
 ### **送受信の通信フォーマット**
 本システムでは，PC（ROS2）からマイコンへ指令を送り，マイコンからPCへロボットの状態を報告する．
 
@@ -835,8 +837,6 @@ receive_data_from_mcu()
 | `serial_send_node` | PC → マイコンの指令送信 |
 | `serial_read_node` | マイコン → PC のデータ受信 |
 
-参考にどうぞ
-https://github.com/SkenHub/ROS2_Serial/tree/main
 
 ### **`serial_send_node`（PC → マイコン）**
 ```python
