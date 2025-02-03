@@ -835,6 +835,9 @@ receive_data_from_mcu()
 | `serial_send_node` | PC → マイコンの指令送信 |
 | `serial_read_node` | マイコン → PC のデータ受信 |
 
+参考にどうぞ
+https://github.com/SkenHub/ROS2_Serial/tree/main
+
 ### **`serial_send_node`（PC → マイコン）**
 ```python
 import rclpy
