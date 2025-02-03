@@ -314,7 +314,7 @@ UI は HTML + CSS で作成されており,主要な要素は以下の通りで�
 
 ## **経路計画**
 
-### **(1) 障害物がない場合**
+### **障害物がない場合**
 
 最も基本的な経路計画は，「現在位置から目標位置までの直線移動」 である．
 
@@ -559,3 +559,190 @@ Vx: 0.00, Vy: 0.00, Omega: 0.00
 ```
 このように、ロボットは目標地点に向かって減速しながら移動する.
 
+## **実際のロボコンでは**
+![picture 0](../../images/c38d6dc2b716936e2cfdfab9a067105c482c9a31eb0cb72f243adf274d23f0c7.png)  
+実際に使用したコードの解説を行う．
+
+### **ControllerNode の解説**
+ `ControllerNode` は，ロボットの移動制御を担当する ROS2 ノードである．  
+WebSocket を通じて送信された指令を受け取り，ロボットの移動目標を決定し，適切な速度指令を送信する．  
+
+### **ノードの概要**
+| 項目 | 説明 |
+|------|------|
+| **ノード名** | `controller_node` |
+| **購読トピック** | `web_socket_pub`（WebSocket からの指令），`estimated_position`（現在位置情報） |
+| **発行トピック** | `cmd_vel`（速度指令を送信） |
+| **機能** | 受信した指令に基づき，ロボットの移動目標を決定し，速度・角速度を計算して送信する |
+
+### **初期化処理**
+
+```python
+class ControllerNode(Node):
+    def __init__(self):
+        super().__init__('controller_node')
+```
+`ControllerNode` クラスを ROS2 ノードとして初期化する．  
+ROS2 のノードとして機能するために `super().__init__('controller_node')` を呼び出す．  
+
+### **トピックの購読・発行**
+
+```python
+self.subscription = self.create_subscription(
+    String,
+    'web_socket_pub',
+    self.listener_callback,
+    10)
+
+self.publisher_ = self.create_publisher(Float32MultiArray, 'cmd_vel', 10)
+
+self.position_subscription = self.create_subscription(
+    Float32MultiArray,
+    'estimated_position',
+    self.update_position_callback,
+    10)
+```
+- `web_socket_pub` のデータを購読し，`listener_callback` 関数を実行する
+- `cmd_vel` トピックを発行し，移動制御の指令を送信する
+- `estimated_position` のデータを購読し，現在位置の更新を行う
+
+### **目標地点の設定**
+
+```python
+self.locations_normal = {
+    '1': [2160, 1100, 0],  
+    '2': [0, 1100, 0],
+    '3': [0, 0, 0],
+    '4': [3000, 1500, 0],
+    '5': [3000, 1500, 90]
+}
+self.locations_inverted = {
+    '1': [-1480, 1100, 0],  
+    '2': [0, 1100, 0],
+    '3': [0, 0, 0],
+    '4': [-3000, 1500, 0],
+    '5': [0, 1500, 90]
+}
+```
+モード `0`（通常モード）と `1`（X軸反転モード）で目標座標を切り替える．  
+モード `1` では `X` 座標が負の値となり，左右対称の座標系となる．  
+
+### **WebSocket からのデータ受信**
+
+```python
+def listener_callback(self, msg):
+    data = msg.data.split(',')
+
+    if len(data) < 13:
+        self.get_logger().error(f"受信データの長さが不足しています: {len(data)}個の要素があり，最低でも13個が必要です")
+        return
+
+    behavior = int(data[0])
+    mode = int(data[1])
+    buttons = list(map(int, data[2:6]))
+    color = data[6]
+    emergency_stop = int(data[7])
+    lx = int(data[8])
+    ly = int(data[9])
+    rx = int(data[10])
+    ry = int(data[11])
+    self.speedmode = int(data[12])
+```
+WebSocket から送信されるデータは，カンマ区切りの文字列となっている．  
+各データを分割し，適切な型に変換して利用する．  
+
+### **手動・自動モードの切り替え**
+
+```python
+if emergency_stop == 1:
+    self.send_velocity_command(0.0, 0.0, 0.0, mode, float(255))
+    return
+
+elif mode == 1:
+    if not behavior == 21:
+        if self.speedmode == 0:
+            self.nx = 7
+            self.ny = 7
+        else:
+            self.nx = 2
+            self.ny = 50
+        Vx = (rx-105) * self.nx
+        Vy = (ry-107) * self.ny
+        omega = (lx-102) / 2
+        self.send_velocity_command(Vx, Vy, omega, mode, behavior)
+    else:
+        self.send_velocity_command(0, 0, 0, mode, behavior)
+```
+- 非常停止 `emergency_stop` が `1` の場合は停止コマンドを送信
+- `mode == 1` の場合，ジョイスティックでの手動操作
+  - `speedmode == 0`（低速モード）と `1`（高速モード）で速度スケールを変更
+  - ジョイスティックの値を `Vx, Vy, omega` に変換し送信
+
+### **目標地点への移動（経路計画）**
+
+```python
+if any(buttons):
+    for i, button in enumerate(buttons):
+        if button == 1:
+            if color == '0':
+                target = self.locations_normal[str(i + 1)]
+            else:
+                target = self.locations_inverted[str(i + 1)]
+            self.move_to_target(target, float(mode), float(0))
+            break
+```
+- どのボタンが押されたかをチェックし，対応する目標地点 `target` を取得
+- `move_to_target(target, mode, 0)` を呼び出し，目標地点に向けて移動を開始
+
+### **目標地点への移動の計算**
+
+```python
+def move_to_target(self, target, team_color, action_number):
+    if self.speedmode == 0:
+        self.max_speed = 500
+        self.max_accel = 500
+    else:
+        self.max_speed = 800
+        self.max_accel = 800
+
+    x, y, target_theta = target
+    dx = x - self.current_position[0]
+    dy = y - self.current_position[1]
+    distance = math.sqrt(dx**2 + dy**2)
+    direction = (math.degrees(math.atan2(dy, dx)) - 90) % 360
+```
+- `dx, dy` を計算し，目標地点までの距離と方向を算出
+- 方向 `direction` は `atan2(dy, dx)` を使用して求め，90°ずらしている（正面が 0° になるよう調整）
+
+### **速度制御**
+
+```python
+current_speed = math.sqrt(self.current_position[0]**2 + self.current_position[1]**2)
+Vx = min(self.max_speed, distance) * math.sin(math.radians(direction))*-1
+Vy = min(self.max_speed, distance) * math.cos(math.radians(direction))
+```
+- 現在速度 `current_speed` を計算
+- `Vx, Vy` を計算し，移動方向と速度を決定
+- 最大速度 `max_speed` を超えないよう制限する
+
+### **角度制御**
+
+```python
+dtheta = (target_theta - self.current_position[2] + 360) % 360
+if dtheta > 180:
+    dtheta -= 360
+omega = max(min(dtheta, self.max_angular_speed), -self.max_angular_speed)
+```
+- 目標角度 `target_theta` に向かうための角度偏差 `dtheta` を計算
+- 180°を超えた場合は逆回転を行う
+- 角速度 `omega` は `max_angular_speed` を超えないよう制限
+
+### **速度指令の送信**
+
+```python
+def send_velocity_command(self, Vx, Vy, omega, team_color, action_number):
+    msg = Float32MultiArray()
+    msg.data = [float(Vx), float(Vy), float(omega), float(team_color), float(action_number)]
+    self.publisher_.publish(msg)
+```
+- `cmd_vel` トピックに移動指令を送信
