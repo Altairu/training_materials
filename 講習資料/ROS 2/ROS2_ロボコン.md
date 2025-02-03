@@ -746,3 +746,171 @@ def send_velocity_command(self, Vx, Vy, omega, team_color, action_number):
     self.publisher_.publish(msg)
 ```
 - `cmd_vel` トピックに移動指令を送信
+
+# ハードウェア層
+### **ハードウェア層：シリアル通信を用いたマイコンとの連携**
+ロボットを制御するためには，PC（ROS2）とマイコン（STM32など）が通信し，指令を送受信する必要がある．  
+高専ロボコンにおいては，リアルタイム性と安定したデータ通信が求められるため，**シリアル通信（UART）** を用いることが一般的である．
+シリアル通信とは，データを 1 ビットずつ順番に送受信する通信方式であり，**UART（Universal Asynchronous Receiver Transmitter）** で広く使用される．  
+
+### **送受信の通信フォーマット**
+本システムでは，PC（ROS2）からマイコンへ指令を送り，マイコンからPCへロボットの状態を報告する．
+
+| データ方向 | フォーマット |
+|-----------|------------|
+| **PC → マイコン** | `[0xA5, 0xA5, 指示番号, モード, Vx, Vy, ω]` |
+| **マイコン → PC** | `[0xA5, 0xA5, 動作番号, モード, X, Y, θ]` |
+
+- **`0xA5, 0xA5`**: ヘッダー（データの開始を示す）
+- **`指示番号`**: PC から送信する命令番号（1～20）
+- **`動作番号`**: マイコンの現在の動作状態
+- **`モード`**: 0（自動制御），1（手動制御）
+- **`Vx, Vy, ω`**: ロボットの並進速度・回転速度（単位 mm/s, deg/s）
+- **`X, Y, θ`**: マイコンからの自己位置データ（単位 mm, 度）
+
+通信フォーマットは固定長（9バイト）にすることで，データ受信の安定性を確保する．
+
+## **シリアル通信の実装**
+### **(1) PC からマイコンへデータ送信**
+ROS2 の `serial_send_node` からマイコンへデータを送る．
+
+#### **Python によるシリアル通信の実装（送信側）**
+```python
+import serial
+import struct
+
+# シリアルポート設定
+ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+
+HEADER = b'\xA5\xA5'
+
+def send_data_to_mcu(command_number, mode, Vx, Vy, omega):
+    """MDD0にデータを送信する関数"""
+    # 速度の範囲制限（符号付き16ビット整数）
+    Vx = max(-32768, min(32767, Vx))
+    Vy = max(-32768, min(32767, Vy))
+    omega = max(-32768, min(32767, omega))
+    
+    # データをパック
+    data = struct.pack('>BBhhh', command_number, mode, Vx, Vy, omega)
+    packet = HEADER + data
+    
+    # 送信
+    ser.write(packet)
+
+# 例: 指示番号=1, モード=0, Vx=500, Vy=0, ω=10
+send_data_to_mcu(1, 0, 500, 0, 10)
+```
+### **(2) マイコンから PC へデータ受信**
+#### **Python によるシリアル通信の実装（受信側）**
+```python
+def receive_data_from_mcu():
+    """MDD0からデータを受信する関数"""
+    buffer = b''
+    
+    while ser.in_waiting > 0:
+        buffer += ser.read(1)
+
+        if len(buffer) >= 2 and buffer[-2:] == HEADER:
+            data = ser.read(8)
+            if len(data) == 8:
+                action_number, mode, X, Y, theta = struct.unpack('>BBhhh', data)
+                print(f"Received: Action={action_number}, Mode={mode}, X={X}, Y={Y}, Theta={theta}")
+            else:
+                print("Received data length mismatch")
+            buffer = b''
+        elif len(buffer) > 2:
+            buffer = buffer[-2:]
+
+receive_data_from_mcu()
+```
+- **`while ser.in_waiting > 0`**: 受信バッファにデータがある間，データを読み込む
+- **`if len(buffer) >= 2 and buffer[-2:] == HEADER:`**: ヘッダーが一致したらデータを受信
+- **`struct.unpack('>BBhhh', data)`**: バイナリデータを解析し，値を取得
+
+## **ROS2 ノードとしての実装**
+### **シリアル通信ノードの構成**
+| ノード名 | 機能 |
+|---------|------|
+| `serial_send_node` | PC → マイコンの指令送信 |
+| `serial_read_node` | マイコン → PC のデータ受信 |
+
+### **`serial_send_node`（PC → マイコン）**
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Float32MultiArray
+import serial
+import struct
+
+class SerialSendNode(Node):
+    def __init__(self):
+        super().__init__('serial_send_node')
+        self.subscription = self.create_subscription(
+            Float32MultiArray,
+            'cmd_vel',
+            self.listener_callback,
+            10)
+        self.ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+
+    def listener_callback(self, msg):
+        command_number = int(msg.data[4])
+        mode = int(msg.data[3])
+        Vx = int(msg.data[0])
+        Vy = int(msg.data[1])
+        omega = int(msg.data[2])
+
+        # データ送信
+        self.send_data(command_number, mode, Vx, Vy, omega)
+
+    def send_data(self, command_number, mode, Vx, Vy, omega):
+        HEADER = b'\xA5\xA5'
+        data = struct.pack('>BBhhh', command_number, mode, Vx, Vy, omega)
+        self.ser.write(HEADER + data)
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = SerialSendNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+- `cmd_vel` トピックを購読し，マイコンへシリアル通信で送信
+- `send_data` 関数でバイナリデータに変換して送信
+
+### **`serial_read_node`（マイコン → PC）**
+```python
+class SerialReadNode(Node):
+    def __init__(self):
+        super().__init__('serial_read_node')
+        self.publisher_ = self.create_publisher(Float32MultiArray, 'robot_position', 10)
+        self.ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+        self.create_timer(0.05, self.read_serial_data)
+
+    def read_serial_data(self):
+        buffer = b''
+        while self.ser.in_waiting > 0:
+            buffer += self.ser.read(1)
+
+            if len(buffer) >= 2 and buffer[-2:] == b'\xA5\xA5':
+                data = self.ser.read(8)
+                if len(data) == 8:
+                    action_number, mode, X, Y, theta = struct.unpack('>BBhhh', data)
+                    msg = Float32MultiArray()
+                    msg.data = [float(X), float(Y), float(theta)]
+                    self.publisher_.publish(msg)
+                buffer = b''
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = SerialReadNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+```
+- `robot_position` トピックを発行し，受信した座標を送信
+- `read_serial_data` でシリアル通信を監視し，マイコンのデータを取得
+
